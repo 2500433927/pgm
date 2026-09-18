@@ -1,0 +1,207 @@
+{
+    "name" : "PGM Simulator",
+    "appid" : "__UNI__331AB46",
+    "description" : "专业的高尔夫PGM模拟器小程序助手",
+    "versionName" : "1.0.26",
+    "versionCode" : 126,
+    "transformPx" : false,
+    "app-plus" : {
+        "usingComponents" : true,
+        "nvueStyleCompiler" : "uni-app",
+        "compilerVersion" : 3,
+        "splashscreen" : {
+            "alwaysShowBeforeRender" : true,
+            "waiting" : true,
+            "autoclose" : true,
+            "delay" : 0
+        },
+        "modules" : {
+            "OAuth" : {},
+            "Camera" : {},
+            "Barcode" : {}
+        },
+        "distribute" : {
+            "android" : {
+                "permissions" : [
+                    "<uses-permission android:name=\"android.permission.CHANGE_NETWORK_STATE\" />",
+                    "<uses-permission android:name=\"android.permission.MOUNT_UNMOUNT_FILESYSTEMS\" />",
+                    "<uses-permission android:name=\"android.permission.VIBRATE\" />",
+                    "<uses-permission android:name=\"android.permission.READ_LOGS\" />",
+                    "<uses-permission android:name=\"android.permission.ACCESS_WIFI_STATE\" />",
+                    "<uses-feature android:name=\"android.hardware.camera.autofocus\" />",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />",
+                    "<uses-permission android:name=\"android.permission.CAMERA\" />",
+                    "<uses-permission android:name=\"android.permission.GET_ACCOUNTS\" />",
+                    "<uses-permission android:name=\"android.permission.READ_PHONE_STATE\" />",
+                    "<uses-permission android:name=\"android.permission.CHANGE_WIFI_STATE\" />",
+                    "<uses-permission android:name=\"android.permission.WAKE_LOCK\" />",
+                    "<uses-permission android:name=\"android.permission.FLASHLIGHT\" />",
+                    "<uses-feature android:name=\"android.hardware.camera\" />",
+                    "<uses-permission android:name=\"android.permission.WRITE_SETTINGS\" />"
+                ],
+                "packagename" : "uni.app.UNIPGMGOLF",
+                "schemes" : "pgmgolf,fb28494319353485059",
+                "targetSdkVersion" : 35,
+                "excludePermissions" : [
+                    "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" />",
+                    "<uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\"/>"
+                ],
+                "safearea" : {
+                    "bottom" : {
+                        "offset" : "none"
+                    }
+                }
+            },
+            "ios" : {
+                "dSYMs" : false,
+                "bundleId" : "uni.app.UNIPGMGOLF",
+                "profile" : "../../cert/PGM_Golf_Distribution.mobileprovision",
+                "p12" : "../../cert/pgm-distribution.p12",
+                "password" : "pgm2026ios",
+                "devices" : "universal",
+                "UIBackgroundModes" : [ "remote-notification" ],
+                "privacyDescription" : {
+                    "NSCameraUsageDescription" : "Camera access is used for taking profile photos and recognizing course QR codes",
+                    "NSPhotoLibraryUsageDescription" : "Photo library access is used for selecting profile photos and course pictures",
+                    "NSLocationWhenInUseUsageDescription" : "Location is used to find nearby golf courses",
+                    "NSLocationAlwaysAndWhenInUseUsageDescription" : "Location is used to find nearby golf courses",
+                    "NSUserTrackingUsageDescription" : "This identifier is used for Google Sign-In security verification, not for advertising tracking"
+                },
+                "urltypes" : "pgmgolf"
+            },
+            "locales" : {
+                "zh-Hans" : {
+                    "ios" : {
+                        "privacyDescription" : {
+                            "NSCameraUsageDescription" : "需要使用相机以拍摄头像和球场照片",
+                            "NSPhotoLibraryUsageDescription" : "需要访问相册以选择头像或球场照片",
+                            "NSLocationWhenInUseUsageDescription" : "需要位置信息以查找附近的高尔夫球场",
+                            "NSLocationAlwaysAndWhenInUseUsageDescription" : "需要位置信息以查找附近的高尔夫球场",
+                            "NSUserTrackingUsageDescription" : "该标识符用于Google登录防欺诈和安全验证，不用于广告追踪"
+                        }
+                    }
+                }
+            },
+            "sdkConfigs" : {
+                "oauth" : {
+                    "weixin" : {
+                        "appid" : "wx5fb2a02702d77fa7",
+                        "UniversalLinks" : "https://xiaoyigolf.cn/pgm/"
+                    },
+                    "google" : {
+                        "clientid" : "719027755009-eo684td4hcpsta7pcr9oajli0giu10ls.apps.googleusercontent.com"
+                    },
+                    "facebook" : {
+                        "appid" : "28494319353485059",
+                        "client_token" : "7462f7e6a4e15bf79a8a27a539485dcc"
+                    },
+                    "apple" : {}
+                }
+            },
+            "icons" : {
+                "android" : {
+                    "hdpi" : "unpackage/res/icons/72x72.png",
+                    "xhdpi" : "unpackage/res/icons/96x96.png",
+                    "xxhdpi" : "unpackage/res/icons/144x144.png",
+                    "xxxhdpi" : "unpackage/res/icons/192x192.png"
+                },
+                "ios" : {
+                    "appstore" : "unpackage/res/icons/1024x1024.png",
+                    "ipad" : {
+                        "app" : "unpackage/res/icons/76x76.png",
+                        "app@2x" : "unpackage/res/icons/152x152.png",
+                        "notification" : "unpackage/res/icons/20x20.png",
+                        "notification@2x" : "unpackage/res/icons/40x40.png",
+                        "proapp@2x" : "unpackage/res/icons/167x167.png",
+                        "settings" : "unpackage/res/icons/29x29.png",
+                        "settings@2x" : "unpackage/res/icons/58x58.png",
+                        "spotlight" : "unpackage/res/icons/40x40.png",
+                        "spotlight@2x" : "unpackage/res/icons/80x80.png"
+                    },
+                    "iphone" : {
+                        "app@2x" : "unpackage/res/icons/120x120.png",
+                        "app@3x" : "unpackage/res/icons/180x180.png",
+                        "notification@2x" : "unpackage/res/icons/40x40.png",
+                        "notification@3x" : "unpackage/res/icons/60x60.png",
+                        "settings@2x" : "unpackage/res/icons/58x58.png",
+                        "settings@3x" : "unpackage/res/icons/87x87.png",
+                        "spotlight@2x" : "unpackage/res/icons/80x80.png",
+                        "spotlight@3x" : "unpackage/res/icons/120x120.png"
+                    }
+                }
+            },
+            "splashscreen" : {
+                "androidStyle" : "default",
+                "android" : {
+                    "hdpi" : "./icon/480_762.png",
+                    "xhdpi" : "icon/720_1242.png",
+                    "xxhdpi" : "icon/1080_1882.png"
+                }
+            }
+        }
+    },
+    "quickapp" : {},
+    "mp-weixin" : {
+        "appid" : "wx14c0e7ecd995d2db",
+        "setting" : {
+            "urlCheck" : false,
+            "es6" : true,
+            "enhance" : true,
+            "postcss" : true,
+            "preloadBackgroundData" : false,
+            "minified" : true,
+            "newFeature" : true,
+            "coverView" : true,
+            "nodeModules" : false,
+            "autoAudits" : false,
+            "showShadowRootInWxmlPanel" : true,
+            "scopeDataCheck" : false,
+            "uglifyFileName" : false,
+            "checkInvalidKey" : true,
+            "checkSiteMap" : true,
+            "uploadWithSourceMap" : true,
+            "compileHotReLoad" : false,
+            "lazyloadPlaceholderEnable" : false,
+            "useMultiFrameRuntime" : true,
+            "useApiHook" : true,
+            "useApiHostProcess" : true,
+            "babelSetting" : {
+                "ignore" : [],
+                "disablePlugins" : [],
+                "outputPath" : ""
+            },
+            "enableEngineNative" : false,
+            "useIsolateContext" : true,
+            "userConfirmedBundleSwitch" : false,
+            "packNpmManually" : false,
+            "packNpmRelationList" : [],
+            "minifyWXSS" : true,
+            "disableUseStrict" : false,
+            "minifyWXML" : true,
+            "showES6CompileOption" : false,
+            "useCompilerPlugins" : false,
+            "ignoreDevUnusedFiles" : false,
+            "ignoreUploadUnusedFiles" : false
+        },
+        "usingComponents" : true,
+        "permission" : {
+            "scope.userLocation" : {
+                "desc" : "您的位置信息将用于查找附近的高尔夫球场"
+            }
+        }
+    },
+    "mp-alipay" : {
+        "usingComponents" : true
+    },
+    "mp-baidu" : {
+        "usingComponents" : true
+    },
+    "mp-toutiao" : {
+        "usingComponents" : true
+    },
+    "uniStatistics" : {
+        "enable" : false
+    },
+    "vueVersion" : "3",
+    "locale" : "auto"
+}
