@@ -57,3 +57,18 @@
 - 连接写法与 `sync_tournaments_to_inner` 一致（`ClientOptions::parse` + `Client::with_options`，每请求建立）
 - 连接失败返回 500 + 具体错误（Inner MongoDB client/connection error）
 - 效果：排行榜实时读内网数据，不再依赖 admin-web「同步数据」的落库结果
+
+## v1.8 — 修复 Google/Apple 第三方登录「退出后无法再登录，须卸载重装」
+
+- **根因**：退出登录只清 App 自身存储，从未清除第三方 OAuth SDK 会话；再登录时 SDK 静默返回缓存的上次授权 token（已过期），后端拒绝后每次重试都是同一份过期凭据，死循环直到卸载重装清空 SDK 状态
+- **前端**（stores/user.js）：`logout()` 增加 best-effort `uni.logout` 清除 google/apple/facebook 的 SDK 会话（仅 APP-PLUS），下次登录走完整授权流程签发全新 token
+- **前端**（pages/login/login.vue）：
+  - 新增 `decodeJwtPayload`/`isJwtExpired` 工具函数（本地解码 JWT exp，含 60s 时差）
+  - Google 登录重构为 `runGoogleLoginFlow(isRetry)` + `clearGoogleSdkSession`：本地检测凭据 JWT 过期，或后端返回 `GOOGLE_TOKEN_EXPIRED`/`Invalid Google ID token` 时，清除 SDK 会话并自动重新授权重试一次
+  - Apple 登录流程增加同样的本地过期预检（原先只依赖后端 `APPLE_TOKEN_EXPIRED` 再重试，多一轮失败往返）
+- **后端**（services/auth_service.rs）：
+  - `google_login` 凭据验证重构为降级链 `verify_google_credentials`：id_token 失败 → access_token（含本地 JWT 解码）→ openid，修复了此前 id_token 失败只回退 openid、iOS 端无 openid 直接失败的问题（与 wiki 设计的降级链一致）
+  - `decode_google_jwt_payload` 补 `exp` 校验（60s 时差），不再接受过期缓存 token；新增 `google_jwt_exp` 辅助函数
+  - `verify_google_access_token` 对 JWT 形凭据前置过期检测，返回稳定错误码 `GOOGLE_TOKEN_EXPIRED`（401）
+  - `verify_google_token` 调用 tokeninfo 增加 5s 超时 + 3s 连接超时（国内服务器直连 Google 防挂起）
+- **后端**（routes/google/session.rs）：错误响应改用 `AppError::error_response()`（与 Apple 登录一致），过期 token 返回 401 + 稳定 `message` 错误码而非一律 500 + 原始字符串，前端可据此识别「可重试」错误
