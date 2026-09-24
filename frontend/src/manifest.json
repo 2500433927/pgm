@@ -2,8 +2,8 @@
     "name" : "PGM Simulator",
     "appid" : "__UNI__331AB46",
     "description" : "专业的高尔夫PGM模拟器小程序助手",
-    "versionName" : "1.0.29",
-    "versionCode" : 129,
+    "versionName" : "1.0.30",
+    "versionCode" : 130,
     "transformPx" : false,
     "app-plus" : {
         "usingComponents" : true,
@@ -50,7 +50,8 @@
                     "bottom" : {
                         "offset" : "none"
                     }
-                }
+                },
+                "minSdkVersion" : 24
             },
             "ios" : {
                 "dSYMs" : false,
