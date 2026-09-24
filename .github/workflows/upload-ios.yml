@@ -1,0 +1,43 @@
+name: Upload iOS to App Store Connect
+
+on:
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect version and IPA
+        id: detect
+        run: |
+          VER=$(node -p "require('./frontend/src/manifest.json').versionName")
+          echo "version=$VER" >> $GITHUB_OUTPUT
+          echo "Detected version: $VER"
+          # Find IPA file in frontend/ipa
+          IPA_FILE=$(find ./frontend/ipa -name "*.ipa" 2>/dev/null | head -1)
+          if [ -z "$IPA_FILE" ]; then
+            echo "::error::No .ipa file found in frontend/ipa/"
+            exit 1
+          fi
+          echo "ipa_path=$IPA_FILE" >> $GITHUB_OUTPUT
+          echo "Found IPA: $IPA_FILE"
+
+      - name: Upload IPA to App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          # altool expects key file at ~/.private_keys/AuthKey_<KEY_ID>.p8
+          mkdir -p ~/.private_keys
+          echo "$ASC_PRIVATE_KEY" > ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+          # Upload using xcrun altool
+          xcrun altool --upload-app \
+            -f "${{ steps.detect.outputs.ipa_path }}" \
+            -t ios \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
