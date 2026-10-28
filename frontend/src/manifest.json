@@ -1,9 +1,9 @@
 {
     "name" : "PGM Simulator",
     "appid" : "__UNI__331AB46",
-    "description" : "专业的高尔夫PGM模拟器小程序助手",
-    "versionName" : "1.0.30",
-    "versionCode" : 130,
+    "description" : "PGM Golf Simulator - 高尔夫模拟器、记分卡、球场助手",
+    "versionName" : "1.0.32",
+    "versionCode" : 132,
     "transformPx" : false,
     "app-plus" : {
         "usingComponents" : true,
@@ -41,7 +41,7 @@
                 ],
                 "packagename" : "uni.app.UNIPGMGOLF",
                 "schemes" : "pgmgolf,fb28494319353485059",
-                "targetSdkVersion" : 35,
+                "targetSdkVersion" : 36,
                 "excludePermissions" : [
                     "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" />",
                     "<uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\"/>"
