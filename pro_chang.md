@@ -500,3 +500,32 @@
   - `description` 改为 "PGM Golf Simulator - 高尔夫模拟器、记分卡、球场助手"（不参与 App Store 搜索，仅保持包信息一致）
 - **ASC 建议配置**（手工）：英文名 "PGM Golf Simulator"、副标题 "Golf Simulator & Scorecard"、关键词覆盖 scorecard/swing/handicap 等；中文名 "PGM 高尔夫模拟器"、副标题 "高尔夫模拟器与记分卡"、关键词含 pgm/pgm模拟器/模拟器/高尔夫模拟器/记分卡等；确认目标国家/地区可售
 - 验证：重新打包上传后，在目标地区 App Store 搜索 pgm / PGM 模拟器 / golf simulator；上线后 24-72 小时看 ASC「App 分析 → App Store 搜索」曝光
+
+## v1.54 — 修复 Apple/Google 登录报错 `uni.logout is not a function`
+
+- **问题**：iOS App 使用 Apple 登录报 `uni.logout is not a function`；卸载重装后可临时恢复
+- **根因**：v1.8 为清理第三方 OAuth SDK 缓存调用了 `uni.logout`，但当前 App 运行时（HBuilderX 基座）**没有实现该 API**。`stores/user.js` 里的调用被 try/catch 静默吞掉，实际从未清掉 SDK 会话；`login.vue` 的 `clearAppleSdkSession` 没有保护——当 `uni.login` 返回 Apple SDK 缓存的过期 identityToken（`isJwtExpired` 命中）时会调用 `uni.logout`，同步抛 TypeError，登录中断。卸载重装清空了 SDK 授权缓存，不再走该分支，所以能临时恢复
+- **修复**：
+  - 新增 `frontend/src/utils/oauth.js` 的 `clearOAuthSdkSession(provider)`：优先 `uni.logout`（若存在），否则回退 HTML5+ `plus.oauth.getServices(...).logout()`（官方推荐的强制重新授权方式）；带 1.5s 超时、永不抛异常
+  - `frontend/src/pages/login/login.vue`：`clearAppleSdkSession` / `clearGoogleSdkSession` 改用统一 helper，删除未保护的 `uni.logout`
+  - `frontend/src/stores/user.js`：退出登录清理 google/apple/facebook 会话改用 helper（原 try/catch 中的 `uni.logout` 实际无效）
+- 说明：按 Apple 官方行为，调用 logout 后再次授权弹窗可能不再显示姓名/邮箱（返回 null）；应用仍以 identityToken/authorizationCode 完成登录，不影响账号识别
+- 验证：eslint 通过；需用重新打包的自定义基座/正式包在 iPhone 上回归：首次 Apple 登录、退出后再次 Apple 登录、缓存 token 过期后重试登录，均不再报 `uni.logout is not a function`；Android Google 登录同步回归
+
+## v1.55 — 赛事文本字段长度与非法字符校验（admin-web + 小程序 + 后端）
+
+- **规则**：赛事名称/赛事名称(英文) 最多 20 字符（必填/可选、单行）；比赛说明/比赛说明(英文)/奖品/奖品(英文) 最多 100 字符（可选、可多行）；仅允许中文、英文字母、数字、空格/换行、常用中英文标点，emoji、★♥✅ 等装饰符号和控制字符一律拒绝；字符数按 Unicode 码点计
+- **后端**（services/tournament_service.rs）：
+  - 新增 `TOURNAMENT_NAME_MAX_CHARS=20`、`TOURNAMENT_DESC_MAX_CHARS=100`、`is_allowed_tournament_char`、`validate_tournament_text_field`、`validate_tournament_create/update`
+  - `create_tournament`、`update_tournament`、admin `create_official`、admin `update_official` 四处入口调用校验，返回 400 中文错误（不能为空/超过 N 个字符/包含非法字符）
+  - 新增 5 个单元测试：长度边界、emoji/特殊符号、名称换行、必填
+- **admin-web**：
+  - 新增 `src/utils/tournamentText.js`（码点计数、白名单过滤、错误码）
+  - `TournamentForm.vue`：名称/英文名称 20 上限与字符计数；四个说明/奖品 textarea 100 上限；输入时过滤非法字符，提交前逐字段校验
+  - `TournamentTable.vue`：六个内联输入框加 maxlength 与输入过滤；保存前校验，错误提示带行号
+- **小程序**：
+  - 新增 `src/utils/tournamentText.js`（同规则）
+  - `pages/tournament/create.vue`：名称 20、说明/奖品 100；输入时过滤；提交前校验；字符计数按码点
+  - i18n 新增 errorNameTooLong/errorNameInvalid/errorIntroTooLong/errorIntroInvalid/errorPrizesTooLong/errorPrizesInvalid（zh/en）
+- 验证：cargo test 91 passed / 0 failed；admin-web `npm run build` 成功；frontend 小程序构建成功；eslint 无新增错误
+- 注意：历史赛事若名称超 20 字、说明/奖品超 100 字或含 emoji/特殊符号，下次在管理端/小程序保存时会被校验拦截，需要先手动清理
