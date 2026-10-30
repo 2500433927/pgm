@@ -2,8 +2,8 @@
     "name" : "PGM Simulator",
     "appid" : "__UNI__331AB46",
     "description" : "PGM Golf Simulator - 高尔夫模拟器、记分卡、球场助手",
-    "versionName" : "1.0.33",
-    "versionCode" : 133,
+    "versionName" : "1.0.34",
+    "versionCode" : 134,
     "transformPx" : false,
     "app-plus" : {
         "usingComponents" : true,
@@ -31,6 +31,9 @@
                     "<uses-feature android:name=\"android.hardware.camera.autofocus\" />",
                     "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\" />",
                     "<uses-permission android:name=\"android.permission.CAMERA\" />",
+                    "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" />",
+                    "<uses-permission android:name=\"android.permission.READ_MEDIA_VISUAL_USER_SELECTED\" />",
+                    "<uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\" />",
                     "<uses-permission android:name=\"android.permission.GET_ACCOUNTS\" />",
                     "<uses-permission android:name=\"android.permission.READ_PHONE_STATE\" />",
                     "<uses-permission android:name=\"android.permission.CHANGE_WIFI_STATE\" />",
@@ -43,7 +46,6 @@
                 "schemes" : "pgmgolf,fb28494319353485059",
                 "targetSdkVersion" : 36,
                 "excludePermissions" : [
-                    "<uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" />",
                     "<uses-permission android:name=\"android.permission.READ_MEDIA_VIDEO\"/>"
                 ],
                 "safearea" : {

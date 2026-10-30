@@ -529,3 +529,28 @@
   - i18n 新增 errorNameTooLong/errorNameInvalid/errorIntroTooLong/errorIntroInvalid/errorPrizesTooLong/errorPrizesInvalid（zh/en）
 - 验证：cargo test 91 passed / 0 failed；admin-web `npm run build` 成功；frontend 小程序构建成功；eslint 无新增错误
 - 注意：历史赛事若名称超 20 字、说明/奖品超 100 字或含 emoji/特殊符号，下次在管理端/小程序保存时会被校验拦截，需要先手动清理
+
+## v1.56 — 调整英文字段上限：赛事名称(英文) 100、比赛说明(英文)/奖品(英文) 300
+
+- **需求**：赛事管理系统中文名称仍 20、比赛说明/奖品仍 100；英文字段放宽——`name_en` 100 字符，`intro_en`/`prizes_en` 300 字符
+- **后端**（services/tournament_service.rs）：
+  - 新增 `TOURNAMENT_NAME_EN_MAX_CHARS=100`、`TOURNAMENT_DESC_EN_MAX_CHARS=300`
+  - `validate_tournament_create/update` 中 name_en/intro_en/prizes_en 使用新上限；中文 name/intro/prizes 保持 20/100
+  - 新增英文字段长度边界单元测试
+- **admin-web**：
+  - `utils/tournamentText.js` 新增两个常量
+  - `TournamentForm.vue`：赛事名称(英文) maxlength/校验/输入过滤改为 100；比赛说明(英文)/奖品(英文) 改为 300
+  - `TournamentTable.vue`：nameEn 内联列上限 100；introEn/prizesEn 上限 300；保存校验同步
+- **小程序**：不变（小程序创建页没有英文字段；中文 name/intro/prizes 仍 20/100）
+- 验证：cargo test 92 passed / 0 failed；admin-web npm run build 成功；组件无诊断
+
+## v1.57 — 修复 Android 13+ 从相册选择头像无反应（媒体权限缺失）
+
+- **问题**：Android（Google Play 包）我的 → 修改个人信息 → 点击头像 → 从相册选择无任何反应；iOS 正常
+- **根因**：App 端 `uni.chooseImage` 内部使用 `plus.gallery.pick({ system: false })`（DCloud 自带相册），需要相册读取权限；manifest 的 `excludePermissions` 排除了 `READ_MEDIA_IMAGES`，而 Android 13+（targetSdk 36）`READ_EXTERNAL_STORAGE` 已不覆盖图片访问 → 相册打开/读取失败；`fail` 回调只 console.error，用户无感知。检查最新 AAB 确认包含 READ_MEDIA_VISUAL_USER_SELECTED/READ_EXTERNAL_STORAGE，但不含 READ_MEDIA_IMAGES
+- **修复**：
+  - `frontend/src/manifest.json`：从 excludePermissions 移除 READ_MEDIA_IMAGES（保留 VIDEO 排除）；permissions 新增 READ_MEDIA_IMAGES、READ_MEDIA_VISUAL_USER_SELECTED、READ_EXTERNAL_STORAGE(maxSdkVersion=32)
+  - `frontend/src/pages/edit/editProfile.vue`：App 端选择头像前先申请权限（Android 13+ READ_MEDIA_IMAGES，≤12 READ_EXTERNAL_STORAGE）；拒绝时弹窗提示并可跳转系统应用设置；`chooseImage` fail 增加 toast 提示
+  - i18n 新增 edit.avatarPermissionTitle/avatarPermissionContent/openSettings/avatarPickFailed（zh/en）
+- 验证：App 资源构建成功；editProfile eslint 仅既有硬编码昵称文案报错；需重新打包 Android APK/AAB（manifest 改动 wgt 热更新不生效），在 Android 13/14 真机回归相册授权、选图、拒绝后去设置、iOS 不受影响
+- 注意：Google Play 可能要求「照片和视频权限」声明；若审核要求改用系统 Photo Picker，需另立项接入 UTS/系统选择器插件
