@@ -554,3 +554,62 @@
   - i18n 新增 edit.avatarPermissionTitle/avatarPermissionContent/openSettings/avatarPickFailed（zh/en）
 - 验证：App 资源构建成功；editProfile eslint 仅既有硬编码昵称文案报错；需重新打包 Android APK/AAB（manifest 改动 wgt 热更新不生效），在 Android 13/14 真机回归相册授权、选图、拒绝后去设置、iOS 不受影响
 - 注意：Google Play 可能要求「照片和视频权限」声明；若审核要求改用系统 Photo Picker，需另立项接入 UTS/系统选择器插件
+
+
+## v1.58 — 新增赛事 App 报名专用二维码（与微信小程序码路径区分）
+
+- **需求**：微信赛事码只能微信扫码；新增独立的 App 报名二维码，扫码后直接进入赛事详情页报名，路径与微信码不同
+- **二维码内容**：`{SHORTLINK_BASE_URL}/app/t/{tournamentId}`（新路径 `/app/t/`，与微信 scene `t{id}`、shortlink `/l/{token}` 均不同）；兼容 `pgmgolf://tournament?id={id}` 深链
+- **后端**：
+  - Cargo.toml 新增 `qrcode 0.14`（image 特性）+ `image 0.25`（png）
+  - `GET /api/tournament/{id}/app-qr`：校验 ObjectId，生成 512px PNG 二维码（内容基址优先 APP_QR_BASE_URL，否则 SHORTLINK_BASE_URL）
+  - 新增 `GET /app/t/{id}` 落地页（routes/app/tournament_qr.rs）：提供「打开 PGM App 报名」按钮（`pgmgolf://tournament?id=...`）、自动尝试拉起 App、未安装提示；main.rs 注册根路由
+- **App**：
+  - 新增 `utils/appQr.js` 的 `extractTournamentIdFromQr`：识别 `/app/t/{id}` 与 `pgmgolf://tournament?id={id}`
+  - index.vue `startScan` APP 分支最前面增加赛事二维码判断：已登录直接 `navigateTo` 详情；未登录写入 `pending_scene=t{id}` 后跳登录，登录成功回首页自动回详情
+  - App.vue `handleAppDeepLink` 增加 tournament 深链分支：冷/热启动、系统相机深链直接 reLaunch 到详情
+  - detail.vue `handleRegister` 未登录时写入 `pending_scene=t{id}` 再跳登录，登录后回到详情继续报名
+- **管理端**：
+  - api/index.js 新增 `getTournamentAppQrUrl(id)`
+  - TournamentTable.vue 操作列新增「App二维码」按钮（仅已保存行），弹窗展示二维码、赛事名、下载 PNG、使用提示
+- 说明：复用现有 `SHORTLINK_BASE_URL`（trial/release/本地已配置），无需新增环境变量；旧微信赛事码与 App 游戏机扫码逻辑不变
+- 验证：cargo check/test 92 passed；admin-web build 成功；frontend build:app 成功；需真机验证 App 扫码、未登录登录回流、系统相机落地页
+
+## v1.59 — App 赛事二维码改为 POST `/api/app/qrcode/tournament`，支持 tournament_id + machine_id
+
+- **需求**：App 赛事二维码接口与微信码一样支持 machine_id；tournament_id 也放到 body；请求方式改为 POST，路径改为 `/api/app/qrcode/tournament`
+- **machine_id 作用**（与微信码一致）：生成二维码时若非空，写入 Redis `tournament_qr:{tournament_id} = machine_id`（无 TTL）；报名成功后 `game_notify::notify_championship_apply` 读取该映射，POST 到 `GAME_SERVER_URL?machine_id=...&tournament_id=...&openid=...`，游戏服务器把 `championshipApply` 分发到 logind 服务，刷新对应游戏机的屏幕/报名状态；无映射则跳过通知（报名本身仍成功）。映射按赛事存储，同赛事再次生成会覆盖，微信码与 App 码共用
+- **后端**：
+  - 新增 `routes/app/qrcode.rs`：`POST /api/app/qrcode/tournament`，body `{ "tournament_id": "...", "machine_id": "可选" }`，校验 ObjectId、写 Redis 映射、生成 PNG（内容 `{SHORTLINK_BASE_URL}/app/t/{id}`）
+  - `routes/app/mod.rs` 注册 `/qrcode/tournament`
+  - 移除 v1.58 的 `GET /api/tournament/{id}/app-qr` handler 与路由（qrcode/image 依赖保留给新接口）
+- **管理端**：
+  - api/index.js：`getTournamentAppQrUrl` 替换为 `fetchTournamentAppQr(tournamentId, machineId)`（POST 返回 PNG Blob）
+  - TournamentTable.vue：二维码弹窗新增「机器ID（可选）」输入与「生成」按钮；使用 Blob URL 预览/下载，关闭/重新生成时释放 URL；提示机器ID只影响报名通知、图案不变、同赛事覆盖映射
+- **小程序/落地页**：不变（二维码内容仍 `/app/t/{id}`，扫码/登录回流/拉起 App 流程不变）
+- 验证：cargo check/test 92 passed；admin-web build 成功；接口需验证 POST body、Redis 映射、报名通知日志；GET 旧路径已移除
+
+## v1.60 — 赛事管理操作列新增小程序报名二维码
+
+- **需求**：赛事列表每行操作栏在「App二维码」之外新增「小程序二维码」，点击后弹窗展示该赛事的微信小程序码，微信扫码后打开小程序并进入赛事详情页报名
+- **管理端**（admin-web，本次无后端改动）：
+  - api/index.js 新增 `fetchTournamentMiniProgramQr(tournamentId, machineId)`：`POST /api/wechat/qrcode/tournament`（body 同微信赛事码 `{ tournament_id, machine_id? }`），返回图片 Blob；兼容后端 `{success:false,error}`（含 `errcode/errmsg` 对象）错误结构
+  - TournamentTable.vue 操作列新增「小程序二维码」按钮（仅已保存行），与「App二维码」复用同一个弹窗：
+    - 弹窗按 `qrChannel`（app/mp）切换标题、调用接口、扫码提示与下载文件名
+    - 机器ID输入对两种二维码均生效（都写 `tournament_qr:{id}` Redis 映射，报名成功后通知游戏机）
+    - 增加请求序号防竞态：关闭/重开弹窗、切换渠道后丢弃过期响应并释放 Blob URL
+- **扫码流程**：小程序码 content 为 scene `t{tournament_id}`、页面 `pages/tabbar/index/index`，复用现有扫码识别、赛事详情、登录回流与报名逻辑，无需改动后端/小程序
+- 说明：生成依赖后端 `WECHAT_APPID`/`WECHAT_SECRET` 及微信 access_token（Redis）；配置缺失时弹窗会提示 `WECHAT_CONFIG_MISSING` 等后端错误
+- 验证：admin-web npm run build 成功；需验证两种二维码按钮、弹窗切换、机器ID写入 Redis、微信扫码报名与登录回流、下载/关闭释放 Blob URL
+
+## v1.61 — 创建赛事密码框支持明文/密文切换（小眼睛）
+
+- **需求**：小程序端与 App 端创建/编辑赛事时，密码输入默认密文，点击右侧小眼睛切换为明文，再次点击恢复密文
+- **前端**（frontend/src/pages/tournament/create.vue）：
+  - 密码输入框外层增加 `.password-field` 容器与右侧 `.password-toggle` 小眼睛按钮
+  - 用 `:password="!passwordVisible"` 替代固定 `password` 属性；`passwordVisible` 默认 false（密文）
+  - 图标随状态切换：密文显示 `eye-filled`，明文显示 `eye-slash-filled`，点击调用 `togglePasswordVisible`
+  - 输入框与小眼睛采用左右并排布局（避免普通 view 覆盖原生 input 导致微信端点不到），按钮 80rpx 点击区域，带按下反馈
+- **跨端**：create.vue 为小程序/App 共用页面，使用 uni-app input 的 `password` 属性动态切换，微信小程序与 App（vue）均生效；编辑赛事复用同一表单，同样支持
+- **未改动**：赛事报名页（register.vue）的密码输入保持原样（本次需求仅创建赛事）
+- 验证：微信小程序 `npm run build`、App `npm run build:app` 均构建成功；eslint/create.vue 无诊断；需真机验证密文默认、切换明文、再次切回、编辑赛事与提交密码值不变
