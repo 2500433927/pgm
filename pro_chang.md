@@ -613,3 +613,69 @@
 - **跨端**：create.vue 为小程序/App 共用页面，使用 uni-app input 的 `password` 属性动态切换，微信小程序与 App（vue）均生效；编辑赛事复用同一表单，同样支持
 - **未改动**：赛事报名页（register.vue）的密码输入保持原样（本次需求仅创建赛事）
 - 验证：微信小程序 `npm run build`、App `npm run build:app` 均构建成功；eslint/create.vue 无诊断；需真机验证密文默认、切换明文、再次切回、编辑赛事与提交密码值不变
+
+## v1.62 — 修复赛事密码编辑不回显（小程序 + 赛事管理）
+
+- **问题**：小程序/App 创建赛事时设置密码后，再次编辑密码框为空；管理端赛事列表「密码」列与编辑弹窗也为空。更严重：编辑保存时空密码会覆盖原密码，导致密码丢失
+- **根因**：
+  - `backend/src/models/tournament.rs` 的 `password` 带 `#[serde(skip_serializing, default)]`，JSON/BSON 序列化都跳过，所有公开/管理端响应均不返回密码；公开详情只返回 `requiresPassword`
+  - 小程序 `create.vue` 编辑加载后显式 `form.password = ''`，保存又始终提交 `password`
+  - 管理端 `TournamentForm.fillForm` 显式清空密码；`TournamentTable` 虽映射 `t.password`，但后端从未返回
+  - 三处保存都把空串写入后端，后端 update 对 `Some("")` 执行 `$set`，造成密码被清空
+- **后端**：
+  - `models/tournament.rs` 新增 `Tournament::to_json_with_password()`，仅在鉴权接口中显式补回 password
+  - 新增 `GET /api/tournament/{id}/edit`（登录 + 仅组织者，与 update 权限一致），返回完整赛事数据 + password；公开详情/列表仍不返回密码
+  - `GET /api/admin/tournaments`（AdminAuth）每条赛事补回 password，管理端列表/编辑弹窗与内嵌 admin.html 自动回显
+- **小程序**（frontend/src/pages/tournament/create.vue）：
+  - 编辑加载改调 `/tournament/{id}/edit`（`requiresAuth` + `skipCache`，避免含密码响应进入 30 秒客户端缓存）
+  - `form.password = d.password || ''`；401/403/404 提示无编辑权限并返回，其他错误提示网络错误
+- **管理端**（admin-web/src/components/TournamentForm.vue）：
+  - `fillForm` 改为 `form.password = d.password || ''`；TournamentTable 无需改动
+- **安全**：密码仍为明文存储（原状）；公开接口不泄露，编辑接口仅组织者、管理端列表仅 AdminAuth；建议先部署后端再发布前端
+- 验证：cargo check/test；小程序/App build；admin-web build；组织者/非组织者接口、公开接口无 password、管理端列表含 password、编辑保存密码不丢失
+
+## v1.63 — 新增赛事二维码链接接口 POST /api/app/tournament_link
+
+- **需求**：客服端开发人员需要获取赛事二维码内容链接，自行生成二维码图片；现有接口只返回 PNG 或微信码图片
+- **接口**：`POST /api/app/tournament_link`，body `{ "tournament_id": "...", "machine_id": "可选" }`，返回 `{ "success": true, "data": { "tournament_link": "..." } }`
+- **链接**：与现有 App 赛事二维码内容完全一致，为 `{APP_QR_BASE_URL || SHORTLINK_BASE_URL || http://localhost:5000}/app/t/{tournament_id}`（App 落地页，非微信小程序码）
+- **后端**（routes/app/qrcode.rs、routes/app/mod.rs）：
+  - 抽取 `build_tournament_link/tournament_link_url` 与 `store_machine_mapping`
+  - 新 handler 校验 ObjectId；machine_id 非空时写 Redis `tournament_qr:{id}`；Redis 失败只告警，仍返回链接
+  - 现有 `POST /api/app/qrcode/tournament` 改用同一 helper，二维码内容不变
+  - 新增纯函数单测（base_url 尾斜杠处理）
+- **安全/行为**：公开接口（与现有 App 二维码一致）；machine_id 映射按赛事覆盖，省略/null/空串不写
+- 验证：cargo check/test；curl 返回链接；redis-cli 校验映射；扫码进入 `/app/t/{id}` 落地页；现有二维码/报名通知回归
+
+## v1.64 — 修复赛事二维码链接跨环境导致 App 扫码“网络错误”
+
+- **问题**：客户端调用 release 的 `POST /api/app/tournament_link`，传入 trial 环境赛事 ID，接口仍返回 release 域名链接；App 扫码后详情接口 404，页面显示“网络错误”
+- **实测**：
+  - 二维码内容 `https://xiaoyigolf.cn/pm/release/app/t/6ace1f88b4089db9a91dbd69`
+  - 同一 ID 在 trial API → 200（active），在 release API → 404
+  - 客户端日志调用 `/pm/release/api/app/tournament_link`
+- **根因**：
+  - `get_tournament_link` 只校验 ObjectId 格式，未校验赛事在当前环境是否存在/已发布
+  - App 详情页把 404 等请求异常统一显示为“网络错误”
+  - 现有 `POST /api/app/qrcode/tournament` 同样只校验格式
+- **后端**（routes/app/qrcode.rs）：
+  - 新增 `is_publicly_visible`（active/completed）与 `ensure_public_tournament`
+  - `get_tournament_link`、`generate_tournament_qrcode` 在写 Redis/生成前校验；不存在/草稿/已取消返回 404 `{success:false,message:"Tournament not found or not published in this environment"}`
+  - 被拒绝的请求不会写 `tournament_qr:{id}` 映射
+  - 新增状态可见性单测
+- **说明**：App 环境由安装包决定，release 用户必须使用 release 环境赛事 ID；微信赛事码接口本次未加同样校验
+- 验证：cargo check/test；本地 active/draft 接口；生产 release+trial ID 应 404、release+release ID 应 200 且扫码正常
+
+## v1.65 — 创建赛事时校验开始时间不能早于当前时间
+
+- **需求**：小程序/App 和赛事管理界面创建赛事时，开始时间不能早于当前时间；编辑历史赛事不受影响
+- **小程序/App**（frontend/src/pages/tournament/create.vue）：
+  - 新增 `validateStartTimeForCreate()`：仅新建（`editId` 为空）时校验 `form.startTime >= Date.now()`
+  - 第一步「下一步」和最终提交都会校验，避免在第二步停留期间开始时间已过
+  - i18n 新增 `tournament.errorStartTimePast`（中/英）
+- **管理端**（admin-web）：
+  - TournamentTable.vue 新增行保存时校验开始时间不早于当前时间
+  - TournamentForm.vue 新建赛事的第一步和提交时校验；编辑已有赛事跳过
+  - 旧版内嵌 admin.html 同步加校验
+- **说明**：编辑历史赛事/已开始赛事不校验，避免无法修改其他字段；后端接口未新增该限制
+- 验证：小程序/App build、eslint；admin-web build；手动验证新建过去/未来时间、编辑历史赛事

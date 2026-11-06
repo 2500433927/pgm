@@ -2,8 +2,8 @@
     "name" : "PGM Simulator",
     "appid" : "__UNI__331AB46",
     "description" : "PGM Golf Simulator - 高尔夫模拟器、记分卡、球场助手",
-    "versionName" : "1.0.35",
-    "versionCode" : 135,
+    "versionName" : "1.0.36",
+    "versionCode" : 136,
     "transformPx" : false,
     "app-plus" : {
         "usingComponents" : true,
